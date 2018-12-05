@@ -1,16 +1,16 @@
 .DEFAULT_GOAL := newSobel
-CXX=g++
+CXX=nvcc
 RM=rm -f
-CPPFLAGS=-g -Wall
+NVCCFLAGS=-arch=sm_52 
 
-SRCS=newSobel.cpp
-OBJS=$(subst .cpp,.o,$(SRCS))
+SRCS=newSobel.cu
+OBJS=$(subst .cu,.o,$(SRCS))
 NAME=newSobel
 
 all: newSobel
 
 newSobel: $(OBJS)
-	$(CXX)	$(CPPFLAGS)	-o	$(NAME)	$(SRCS)
+	$(CXX)	$(NVCCFLAGS)	-o	$(NAME)	$(SRCS)
 
 clean:
 	$(RM)	$(OBJS)

@@ -31,7 +31,10 @@ FILE *FILTER_IMAGE;
 void Write_Image (struct BW *FilterPhoto, int *size, int ColCode, FILE *FiltImage);
 void ConvertBW (struct Color *ColorPhoto, struct BW *BWphoto, struct Color *Ctmp, 
                 struct BW *BWtmp, int size);
-void SobelX (struct BW *BWtmp, struct BW *Sobel_Buff, int * size);
+void SobelX (struct BW *BWimg, struct BW *Sobel_Buff, int * size);
+void CUDAsobel (struct BW *BWimg, struct BW *Sobel_Buff, int * size);
+void errorCheck (int code, cudaError_t err);
+__global__ void SobelKernel (struct BW *BWtmp, struct BW *Sobel_Buff, int * size);
 
 int main(int argc, char const *argv[])
 {
@@ -80,6 +83,9 @@ int main(int argc, char const *argv[])
 		ConvertBW(ColorPhoto, BWphoto, ColorPhotoTMP, BWphotoTMP, numPixels);
 		cout << "image Converted to BW\n";
 		SobelX(BWphoto, Sobel_Buff, size);
+		cout << "image ran through CPU sobel\n";
+		CUDAsobel(BWphoto, Sobel_Buff, size);
+		cout << "image ran through CUDA sobel\n";
 		Write_Image(Sobel_Buff, size, MaxColCode, FILTER_IMAGE);
 	}
 
@@ -150,4 +156,46 @@ void SobelX (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 			// cout << "done setting pixel\n";
 		}
 	}
+}
+
+void CUDAsobel (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
+{
+	struct BW *cuda_BW;
+	struct BW *cuda_sobel;
+	int *cuda_size;
+	size_t MEMsize = size[HEIGHT]*size[WIDTH]*sizeof(struct BW);
+
+	// creating dynamic arrays
+	errorCheck(1,cudaMalloc((void **)&cuda_BW,MEMsize));
+	errorCheck(2,cudaMalloc((void **)&cuda_sobel,MEMsize));
+	errorCheck(3,cudaMalloc((void **)&cuda_size,2*sizeof(int)));
+
+	// copping memory to global memory
+	errorCheck(4,cudaMemcpy(cuda_BW,BWimg,MEMsize,cudaMemcpyHostToDevice));
+	errorCheck(5,cudaMemcpy(cuda_sobel,Sobel_Buff,MEMsize,cudaMemcpyHostToDevice));
+	errorCheck(6,cudaMemcpy(cuda_size,size,2*sizeof(int),cudaMemcpyHostToDevice));
+
+	// creating grid and block size
+	dim3 dimgrid(MEMsize/3,MEMsize/3,1);
+	dim3 dimblock(3,3,1);
+
+	// running kernel
+	SobelKernel<<<dimblock,dimgrid>>>(cuda_BW,cuda_sobel,cuda_size);
+	// PUT A SYNC HERE
+
+	// getting back sobel buffer
+	errorCheck(8,cudaMemcpy(Sobel_Buff,cuda_sobel,MEMsize,cudaMemcpyDeviceToHost));
+}
+
+void errorCheck (int code, cudaError_t err)
+{
+   if (err != cudaSuccess){
+      printf("%d %s in %s at line %d\n\n", code, cudaGetErrorString(err),__FILE__,__LINE__);
+      exit(EXIT_FAILURE);
+   }
+}
+
+__global__ void SobelKernel (struct BW *BWtmp, struct BW *Sobel_Buff, int * size)
+{
+
 }
