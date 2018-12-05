@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 }
 
 /*
-   Description:  This function takes in the color photo struct ColorPhoto and 
+   Description:  This function takes in the color photo struct ColorPhoto and converts it to black and white
 
 */
 void ConvertBW (struct Color *ColorPhoto, struct BW *BWphoto, struct Color *Ctmp, 
