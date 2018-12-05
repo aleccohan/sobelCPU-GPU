@@ -32,6 +32,7 @@ void Write_Image (struct BW *FilterPhoto, int *size, int ColCode, FILE *FiltImag
 void ConvertBW (struct Color *ColorPhoto, struct BW *BWphoto, struct Color *Ctmp, 
                 struct BW *BWtmp, int size);
 void SobelX (struct BW *BWtmp, struct BW *Sobel_Buff, int * size);
+void SobelY (struct BW *BWimg, struct BW *Sobel_Buff, int * size);
 
 int main(int argc, char const *argv[])
 {
@@ -113,39 +114,41 @@ void SobelX (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 		// cout << "sobel another row\n";
    		for (int j = 1; j < (height - 1); ++j){
    			// cout << endl << "i = " << i << "| j = " << j << endl;
-   		/*we want to apply the convolution kernel:		-1 0 1
-																			-2 0 2
-																			-1 0 1
+   			/*we want to apply the convolution kernel:		-1 0 1
+															-2 0 2
+															-1 0 1
 			to each pixels, except the very edges of the image
 			then set the value of the pixel to the sum of each pixel in the
 			3x3 area when multiplied by the coresponding value in the kernel
 			*/
 			//this is our sum
-			int sobelSum = 0;
+			int sobelSumX = 0;
 
-			sobelSum += BWimg[(j-1)*width+(i-1)].pixel * -1;
-			sobelSum += BWimg[(j-1)*width+(i+1)].pixel *  1;
-			sobelSum += BWimg[(j)*width + (i-1)].pixel * -2;
-			sobelSum += BWimg[(j)*width + (i+1)].pixel *  2;
-			sobelSum += BWimg[(j+1)*width+(i-1)].pixel * -1;
-			sobelSum += BWimg[(j+1)*width+(i+1)].pixel *  1;
+			sobelSumX += BWimg[(j-1)*width+(i-1)].pixel * -1;
+			sobelSumX += BWimg[(j-1)*width+(i+1)].pixel *  1;
+			sobelSumX += BWimg[(j)*width + (i-1)].pixel * -2;
+			sobelSumX += BWimg[(j)*width + (i+1)].pixel *  2;
+			sobelSumX += BWimg[(j+1)*width+(i-1)].pixel * -1;
+			sobelSumX += BWimg[(j+1)*width+(i+1)].pixel *  1;
+
+			int sobelSumY = 0;
+
+			sobelSumY += BWimg[(j-1)*width+(i-1)].pixel * -1;
+			sobelSumY += BWimg[(j-1)*width+(i)].pixel   * -2;
+			sobelSumY += BWimg[(j-1)*width+(i+1)].pixel * -1;
+			sobelSumY += BWimg[(j+1)*width+(i-1)].pixel *  1;
+			sobelSumY += BWimg[(j+1)*width+(i)].pixel   *  2;
+			sobelSumY += BWimg[(j+1)*width+(i+1)].pixel *  1;
 
 			//set the pixel in the output
 			// cout << "setting pixel\n";
-			Sobel_Buff[j * width + i].pixel = max(0.0, min((double)sobelSum, 255.0));
+			double color = max(0.0, min((double)(sobelSumX+sobelSumY), 255.0));
+			if(color > 60.0)
+				Sobel_Buff[j * width + i].pixel = color;
+			else 
+				Sobel_Buff[j * width + i].pixel = 0;
 			//max(0.0, min((double)sobelSum, 1.0));
 			// cout << "done setting pixel\n";
-
-   		/*
-         (Sobel_Buff+(j*size[WIDTH]+i))->pixel += (BWtmp+((j-1)*size[WIDTH]+(i-1)))->pixel * SFilter[0];
-         (Sobel_Buff+(j*size[WIDTH]+i))->pixel += (BWtmp+((j-1)*size[WIDTH]+(i)))->pixel * SFilter[1];
-         (Sobel_Buff+(j*size[WIDTH]+i))->pixel += (BWtmp+((j-1)*size[WIDTH]+(i+1)))->pixel * SFilter[2];
-         (Sobel_Buff+(j*size[WIDTH]+i))->pixel += (BWtmp+((j)*size[WIDTH]+(i-1)))->pixel * SFilter[3];
-         (Sobel_Buff+(j*size[WIDTH]+i))->pixel += (BWtmp+((j)*size[WIDTH]+(i+1)))->pixel * SFilter[5];
-         (Sobel_Buff+(j*size[WIDTH]+i))->pixel += (BWtmp+((j+1)*size[WIDTH]+(i-1)))->pixel * SFilter[6];
-         (Sobel_Buff+(j*size[WIDTH]+i))->pixel += (BWtmp+((j+1)*size[WIDTH]+(i)))->pixel * SFilter[7];
-         (Sobel_Buff+(j*size[WIDTH]+i))->pixel += (BWtmp+((j+1)*size[WIDTH]+(i+1)))->pixel * SFilter[8];
-   		*/
 		}
 	}
 }
