@@ -82,7 +82,7 @@ int main(int argc, char const *argv[])
         cout << "read in image\n;";
 		ConvertBW(ColorPhoto, BWphoto, ColorPhotoTMP, BWphotoTMP, numPixels);
 		cout << "image Converted to BW\n";
-		SobelX(BWphoto, Sobel_Buff, size);
+//		SobelX(BWphoto, Sobel_Buff, size);
 		cout << "image ran through CPU sobel\n";
 		CUDAsobel(BWphoto, Sobel_Buff, size);
 		cout << "image ran through CUDA sobel\n";
@@ -176,8 +176,8 @@ void CUDAsobel (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 	errorCheck(6,cudaMemcpy(cuda_size,size,2*sizeof(int),cudaMemcpyHostToDevice));
 
 	// creating grid and block size
-	dim3 dimgrid(MEMsize/3,MEMsize/3,1);
-	dim3 dimblock(3,3,1);
+	dim3 dimgrid(MEMsize/32,MEMsize/32,1);
+	dim3 dimblock(32,32,1);
 
 	// running kernel
 	SobelKernel<<<dimblock,dimgrid>>>(cuda_BW,cuda_sobel,cuda_size);
@@ -195,7 +195,36 @@ void errorCheck (int code, cudaError_t err)
    }
 }
 
-__global__ void SobelKernel (struct BW *BWtmp, struct BW *Sobel_Buff, int * size)
+__global__ void SobelKernel (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 {
+   int bx = blockIdx.x; int by = blockIdx.y;
+   int tx = threadIdx.x; int ty = threadIdx.y;
+   int dx = blockDim.x; int dy = blockDim.y;
 
+	if ((bx*dx+tx < size[WIDTH]) && (bx*dx+tx % dx == bx*dx+tx) || (by*dy+ty < size[HEIGHT]) && (by*dy+ty % dy == by*dy+ty))
+	{		
+		int sobelSumX = 0;
+
+		sobelSumX += BWimg[(bx-1)*dx+(tx-1)].pixel * -1;
+		sobelSumX += BWimg[(bx-1)*dx+(tx+1)].pixel *  1;
+		sobelSumX += BWimg[(bx)*dx + (tx-1)].pixel * -2;
+		sobelSumX += BWimg[(bx)*dx + (tx+1)].pixel *  2;
+		sobelSumX += BWimg[(bx+1)*dx+(tx-1)].pixel * -1;
+		sobelSumX += BWimg[(bx+1)*dx+(tx+1)].pixel *  1;
+
+		int sobelSumY = 0;
+
+		sobelSumY += BWimg[(by-1)*dy+(ty-1)].pixel * -1;
+		sobelSumY += BWimg[(by-1)*dy+(ty)].pixel   * -2;
+		sobelSumY += BWimg[(by-1)*dy+(ty+1)].pixel * -1;
+		sobelSumY += BWimg[(by+1)*dy+(ty-1)].pixel *  1;
+		sobelSumY += BWimg[(by+1)*dy+(ty)].pixel   *  2;
+		sobelSumY += BWimg[(by+1)*dy+(ty+1)].pixel *  1;
+
+		double color = max(0.0, min((double)(sobelSumX+sobelSumY), 255.0));
+		if(color > 60.0)
+			Sobel_Buff[(by*dy+ty) * size[WIDTH] + (bx*dx+tx)].pixel = color;
+		else 
+			Sobel_Buff[(by*dy+ty) * size[WIDTH] + (bx*dx+tx)].pixel = 0;
+	}
 }
