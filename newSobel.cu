@@ -176,12 +176,12 @@ void CUDAsobel (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 	errorCheck(6,cudaMemcpy(cuda_size,size,2*sizeof(int),cudaMemcpyHostToDevice));
 
 	// creating grid and block size
-	dim3 dimgrid(MEMsize/32,MEMsize/32,1);
 	dim3 dimblock(32,32,1);
+	dim3 dimgrid(ceil(MEMsize/(dimblock.x)),ceil(MEMsize/(dimblock.y)),1);
 
 	// running kernel
-	SobelKernel<<<dimblock,dimgrid>>>(cuda_BW,cuda_sobel,cuda_size);
-	// PUT A SYNC HERE
+	SobelKernel<<<dimgrid,dimblock>>>(cuda_BW,cuda_sobel,cuda_size);
+	errorCheck(9,cudaThreadSynchronize());
 
 	// getting back sobel buffer
 	errorCheck(8,cudaMemcpy(Sobel_Buff,cuda_sobel,MEMsize,cudaMemcpyDeviceToHost));
@@ -201,30 +201,37 @@ __global__ void SobelKernel (struct BW *BWimg, struct BW *Sobel_Buff, int * size
    int tx = threadIdx.x; int ty = threadIdx.y;
    int dx = blockDim.x; int dy = blockDim.y;
 
-	if ((bx*dx+tx < size[WIDTH]) && (bx*dx+tx % dx == bx*dx+tx) || (by*dy+ty < size[HEIGHT]) && (by*dy+ty % dy == by*dy+ty))
-	{		
+   int Row = dx*bx+tx;
+   int Col = dy*by+ty;
+   int MTXwidth = size[WIDTH];
+   //printf("Col: %i\n", Col);
+
+	if ((Col < size[WIDTH]) && (Col > 0) && (Row < size[HEIGHT]) && (Row > 0))
+	{	
+		//printf("ROW: %i COL: %i\n",Row,Col);
+
 		int sobelSumX = 0;
 
-		sobelSumX += BWimg[(bx-1)*dx+(tx-1)].pixel * -1;
-		sobelSumX += BWimg[(bx-1)*dx+(tx+1)].pixel *  1;
-		sobelSumX += BWimg[(bx)*dx + (tx-1)].pixel * -2;
-		sobelSumX += BWimg[(bx)*dx + (tx+1)].pixel *  2;
-		sobelSumX += BWimg[(bx+1)*dx+(tx-1)].pixel * -1;
-		sobelSumX += BWimg[(bx+1)*dx+(tx+1)].pixel *  1;
+		sobelSumX += BWimg[(Row-1)*MTXwidth+(Col-1)].pixel * -1;
+		sobelSumX += BWimg[(Row-1)*MTXwidth+(Col+1)].pixel *  1;
+		sobelSumX += BWimg[(Row)*MTXwidth + (Col-1)].pixel * -2;
+		sobelSumX += BWimg[(Row)*MTXwidth + (Col+1)].pixel *  2;
+		sobelSumX += BWimg[(Row+1)*MTXwidth+(Col-1)].pixel * -1;
+		sobelSumX += BWimg[(Row+1)*MTXwidth+(Col+1)].pixel *  1;
 
 		int sobelSumY = 0;
 
-		sobelSumY += BWimg[(by-1)*dy+(ty-1)].pixel * -1;
-		sobelSumY += BWimg[(by-1)*dy+(ty)].pixel   * -2;
-		sobelSumY += BWimg[(by-1)*dy+(ty+1)].pixel * -1;
-		sobelSumY += BWimg[(by+1)*dy+(ty-1)].pixel *  1;
-		sobelSumY += BWimg[(by+1)*dy+(ty)].pixel   *  2;
-		sobelSumY += BWimg[(by+1)*dy+(ty+1)].pixel *  1;
+		sobelSumY += BWimg[(Row-1)*MTXwidth+(Col-1)].pixel * -1;
+		sobelSumY += BWimg[(Row-1)*MTXwidth+(Col)].pixel   * -2;
+		sobelSumY += BWimg[(Row-1)*MTXwidth+(Col+1)].pixel * -1;
+		sobelSumY += BWimg[(Row+1)*MTXwidth+(Col-1)].pixel *  1;
+		sobelSumY += BWimg[(Row+1)*MTXwidth+(Col)].pixel   *  2;
+		sobelSumY += BWimg[(Row+1)*MTXwidth+(Col+1)].pixel *  1;
 
 		double color = max(0.0, min((double)(sobelSumX+sobelSumY), 255.0));
 		if(color > 60.0)
-			Sobel_Buff[(by*dy+ty) * size[WIDTH] + (bx*dx+tx)].pixel = color;
+			Sobel_Buff[Row*MTXwidth+Col].pixel = color;
 		else 
-			Sobel_Buff[(by*dy+ty) * size[WIDTH] + (bx*dx+tx)].pixel = 0;
+			Sobel_Buff[Row*MTXwidth+Col].pixel = 0;
 	}
 }
