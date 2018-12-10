@@ -28,12 +28,72 @@ FILE *FILTER_IMAGE;
 #define WIDTH 0
 #define HEIGHT 1
 
+/* Function: Write_Image
+ * Parameters: 
+ * 	FilterPHoto - the struct of black and white pixels for the image that has 
+ 						  the sobel filter applied
+ *		size - an array of integers that holds the width and height in pixels of the img
+ *		ColCode - the number that signifies the highest pixel number for the file
+ *		FiltImage - the output file variable for where to print to
+ * Summary: 
+ *		This function prints out the contents of the image, the pixel sizes, and the 
+ *		P5 to the file so it will show up correctly
+ */
 void Write_Image (struct BW *FilterPhoto, int *size, int ColCode, FILE *FiltImage);
+
+/* Function: ConvertBW
+ * Parameters: 
+ *		ColorPhoto - the struct that holds the color pixels input from the original image
+ *		BWPhoto - the struct of black and white pixels where the function writes to
+ *		Ctmp - temporary structure used for conversion 
+ *		BWtmp - temporary structure used for conversion
+ *		size - an array of integers that holds the width and height in pixels of the img
+ * Summary: 
+ *		This function takes the original picture's pixels and converts them to black 
+ * 		and white to put them into the new BW struct
+ */
 void ConvertBW (struct Color *ColorPhoto, struct BW *BWphoto, struct Color *Ctmp, 
                 struct BW *BWtmp, int size);
+
+/* Function: SobelX
+ * Parameters:
+ 		BWimg - the struct that holds the black and white version of the original image in pixels
+ 		Sobel_Buff - the struct that will hold the sobel filtered version of the black and white pixels
+ 		size - an array of integers that holds the width and height in pixels of the img
+ * Summary: 
+ *		This function is the old CPU version of the sobel filter
+ */
 void SobelX (struct BW *BWimg, struct BW *Sobel_Buff, int * size);
+
+/* Function: CUDAsobel
+ * Parameters: 
+ 		*BWimg - the struct BW that holds all of the pixels for the black and white image. 
+ 		*Sobel_Buff - the struct BW that will eventually hold the completed sobel values.
+ 		size - the size of each row of the given image.
+ * Summary: 
+ 		This kernel (currently commented out) was the original kernel that simply loaded each 
+ 		struct into global memory and applied the sobel function to each pixel in the image.
+ */
 void CUDAsobel (struct BW *BWimg, struct BW *Sobel_Buff, int * size);
+
+/* Function: errorCheck
+ * Parameters: 
+ 		code - an int to help represent where something went wrong with the program.
+ 		cudaError_t err - the string for the last error generated.
+ * Summary: 
+ 		This function checks each pre kernel function call to see if they have executed correctly.
+ */
 void errorCheck (int code, cudaError_t err);
+
+/* Funtion: sharedSobelKernel
+ * Parameters:
+ 		*BWimg - the struct BW that holds all of the pixels for the black and white image. 
+ 		*Sobel_Buff - the struct BW that will eventually hold the completed sobel values.
+ 		rowSize - the size of each row of the given image.
+ * Summary:
+ 		This function holds the kernel that uses shared memory to manipulate each row with the sobel filter and then sends back the 
+ 		struct Sobel_Buff holding the completed image after sobel manipulation.  
+ */
 __global__ void sharedSobelKernel (struct BW *BWimg, struct BW *Sobel_Buff, int * size, int rowSize);
 
 int main(int argc, char const *argv[])
