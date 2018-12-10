@@ -111,53 +111,6 @@ void Write_Image (struct BW *FilterPhoto, int *size, int ColCode, FILE *FiltImag
    fclose(FiltImage);
 }
 
-void SobelX (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
-{
-	int width = size[WIDTH];
-	int height = size[HEIGHT];
-	for (int i = 1; i < (width - 1); ++i){
-		// cout << "sobel another row\n";
-   		for (int j = 1; j < (height - 1); ++j){
-   			// cout << endl << "i = " << i << "| j = " << j << endl;
-   			/*we want to apply the convolution kernel:		-1 0 1
-															-2 0 2
-															-1 0 1
-			to each pixels, except the very edges of the image
-			then set the value of the pixel to the sum of each pixel in the
-			3x3 area when multiplied by the coresponding value in the kernel
-			*/
-			//this is our sum
-			int sobelSumX = 0;
-
-			sobelSumX += BWimg[(j-1)*width+(i-1)].pixel * -1;
-			sobelSumX += BWimg[(j-1)*width+(i+1)].pixel *  1;
-			sobelSumX += BWimg[(j)*width + (i-1)].pixel * -2;
-			sobelSumX += BWimg[(j)*width + (i+1)].pixel *  2;
-			sobelSumX += BWimg[(j+1)*width+(i-1)].pixel * -1;
-			sobelSumX += BWimg[(j+1)*width+(i+1)].pixel *  1;
-
-			int sobelSumY = 0;
-
-			sobelSumY += BWimg[(j-1)*width+(i-1)].pixel * -1;
-			sobelSumY += BWimg[(j-1)*width+(i)].pixel   * -2;
-			sobelSumY += BWimg[(j-1)*width+(i+1)].pixel * -1;
-			sobelSumY += BWimg[(j+1)*width+(i-1)].pixel *  1;
-			sobelSumY += BWimg[(j+1)*width+(i)].pixel   *  2;
-			sobelSumY += BWimg[(j+1)*width+(i+1)].pixel *  1;
-
-			//set the pixel in the output
-			// cout << "setting pixel\n";
-			double color = max(0.0, min((double)(sobelSumX+sobelSumY), 255.0));
-			if(color > 60.0)
-				Sobel_Buff[j * width + i].pixel = color;
-			else 
-				Sobel_Buff[j * width + i].pixel = 0;
-			//max(0.0, min((double)sobelSum, 1.0));
-			// cout << "done setting pixel\n";
-		}
-	}
-}
-
 void CUDAsobel (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 {
 	struct BW *cuda_BW;
@@ -180,9 +133,10 @@ void CUDAsobel (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 	dim3 dimblock(rowSize,1,1);
 	dim3 dimgrid(ceil(MEMsize/(dimblock.x)),1,1);
 	//allocate enough shared memory to hold 3 rows of black and white pixels
-	int sharedSize = dimblock.x * 3 *sizeof(BW);
+	//add 2 to rowsize for the 3 pixels on the ends of the row
+	int sharedSize = (rowSize+2) * 3 * sizeof(struct BW);
 	// running kernel
-	sharedSobelKernel<<<dimgrid,dimblock,sharedSize>>>(cuda_BW,cuda_sobel,cuda_size, rowSize);
+	sharedSobelKernel<<<dimgrid,dimblock,sharedSize>>>(cuda_BW,cuda_sobel,cuda_size, rowSize+2);
 	errorCheck(9,cudaThreadSynchronize());
 
 	// getting back sobel buffer
@@ -197,7 +151,18 @@ void errorCheck (int code, cudaError_t err)
    }
 }
 
-
+/*Description: The GPU kernel that processes in input BW image into a sobel
+ *		filtered BW image. The kernel divides the image into rows for processing
+ *		and loads any relevant data into shared memory before performing the
+ *		sobel opertation
+ *Preconditions: The function requires a black and white image to process,
+ *		and an empty BW image of the same size to output the filtered image to
+ *		It also requires a int matrix with 2 elements "size" where 
+ *			size[0] = width of the image
+ *			size[1] = height of the image
+ *Postconditions: Sobel buff is now a BW image that holds the filtered output
+ *		from BWimg
+*/
 __global__ void sharedSobelKernel (struct BW *BWimg, struct BW *Sobel_Buff, int * size, int rowSize)
 {
 	extern __shared__ BW rows[];
@@ -209,7 +174,9 @@ __global__ void sharedSobelKernel (struct BW *BWimg, struct BW *Sobel_Buff, int 
 	bottomRow = rows + ((rowSize) * 2);
 
 	int bx = blockIdx.x;
-	int tx = threadIdx.x;
+	//offset by 1 because of the extra column of pixels to the left of the row 
+	//of threads.
+	int tx = threadIdx.x + 1;
 	int dx = blockDim.x;
 
 	int MTXwidth = size[WIDTH];
@@ -225,6 +192,16 @@ __global__ void sharedSobelKernel (struct BW *BWimg, struct BW *Sobel_Buff, int 
 		topRow[tx].pixel = BWimg[pos - MTXwidth].pixel;
 		middleRow[tx].pixel = BWimg[pos].pixel;
 		bottomRow[tx].pixel = BWimg[pos + MTXwidth].pixel;
+	}
+	if(tx == 0) {
+		topRow[tx-1].pixel = BWimg[pos - MTXwidth-1].pixel;
+		middleRow[tx-1].pixel = BWimg[pos-1].pixel;
+		bottomRow[tx-1].pixel = BWimg[pos + MTXwidth-1].pixel;
+	}
+	if(tx == dx) {
+		topRow[tx+1].pixel = BWimg[pos - MTXwidth+1].pixel;
+		middleRow[tx+1].pixel = BWimg[pos+1].pixel;
+		bottomRow[tx+1].pixel = BWimg[pos + MTXwidth+1].pixel;
 	}
 	
 	//make sure all the threads have finished loading up the shared memory
@@ -252,7 +229,7 @@ __global__ void sharedSobelKernel (struct BW *BWimg, struct BW *Sobel_Buff, int 
 		sobelSumY += bottomRow[tx].pixel * 2;		//BWimg[(Row+1)*MTXwidth+(Col)].pixel   *  2;
 		sobelSumY += bottomRow[tx+1].pixel * 1;	//BWimg[(Row+1)*MTXwidth+(Col+1)].pixel *  1;
 
-		//double color = max(0.0, min((double)(sobelSumX+sobelSumY), 255.0));
+		double color = max(0.0, min((double)(sobelSumX+sobelSumY), 255.0));
 		//color = (sobelSumX+sobelSumY)/2;
 		//Sobel_Buff[Row*MTXwidth+Col].pixel = color;
 		//stuff

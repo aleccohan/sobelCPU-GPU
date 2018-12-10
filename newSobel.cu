@@ -83,7 +83,6 @@ int main(int argc, char const *argv[])
 		ConvertBW(ColorPhoto, BWphoto, ColorPhotoTMP, BWphotoTMP, numPixels);
 		cout << "image Converted to BW\n";
 //		SobelX(BWphoto, Sobel_Buff, size);
-		cout << "image ran through CPU sobel\n";
 		CUDAsobel(BWphoto, Sobel_Buff, size);
 		cout << "image ran through CUDA sobel\n";
 		Write_Image(Sobel_Buff, size, MaxColCode, FILTER_IMAGE);
@@ -111,6 +110,7 @@ void Write_Image (struct BW *FilterPhoto, int *size, int ColCode, FILE *FiltImag
    fclose(FiltImage);
 }
 
+/*
 void SobelX (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 {
 	int width = size[WIDTH];
@@ -119,13 +119,13 @@ void SobelX (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 		// cout << "sobel another row\n";
    		for (int j = 1; j < (height - 1); ++j){
    			// cout << endl << "i = " << i << "| j = " << j << endl;
-   			/*we want to apply the convolution kernel:		-1 0 1
+   			we want to apply the convolution kernel:		-1 0 1
 															-2 0 2
 															-1 0 1
 			to each pixels, except the very edges of the image
 			then set the value of the pixel to the sum of each pixel in the
 			3x3 area when multiplied by the coresponding value in the kernel
-			*/
+			
 			//this is our sum
 			int sobelSumX = 0;
 
@@ -157,7 +157,18 @@ void SobelX (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 		}
 	}
 }
+*/
 
+/*Description: CUDAsobel is a function that sets up everything the kernel needs
+ *		to run, and then tells the kernel to run.
+ *Preconditions: The function requires a black and white image to process,
+ *		and an empty BW image of the same size to output the filtered image to
+ *		It also requires a int matrix with 2 elements "size" where 
+ *			size[0] = width of the image
+ *			size[1] = height of the image
+ *Postconditions: Sobel buff is now a BW image that holds the filtered output
+ *		from BWimg
+*/
 void CUDAsobel (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 {
 	struct BW *cuda_BW;
@@ -170,16 +181,14 @@ void CUDAsobel (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 	errorCheck(2,cudaMalloc((void **)&cuda_sobel,MEMsize));
 	errorCheck(3,cudaMalloc((void **)&cuda_size,2*sizeof(int)));
 
-	// copping memory to global memory
+	// copying memory to global memory
 	errorCheck(4,cudaMemcpy(cuda_BW,BWimg,MEMsize,cudaMemcpyHostToDevice));
 	errorCheck(5,cudaMemcpy(cuda_sobel,Sobel_Buff,MEMsize,cudaMemcpyHostToDevice));
 	errorCheck(6,cudaMemcpy(cuda_size,size,2*sizeof(int),cudaMemcpyHostToDevice));
 
 	// creating grid and block size
 	dim3 dimblock(32,32,1);
-	//WE MAY BE ALLOCATING TO MANY BLOCKS IN THE GRID. MEMSIZE IS THE SIZE OF THE 
-	//WHOLE IMAGE
-	dim3 dimgrid(ceil(MEMsize/(dimblock.x)),ceil(MEMsize/(dimblock.y)),1);
+	dim3 dimgrid(ceil(size[HEIGHT]/(double)(dimblock.x)),ceil(size[WIDTH]/(double)(dimblock.y)),1);
 
 	// running kernel
 	SobelKernel<<<dimgrid,dimblock>>>(cuda_BW,cuda_sobel,cuda_size);
@@ -197,6 +206,16 @@ void errorCheck (int code, cudaError_t err)
    }
 }
 
+/*Description: The GPU kernel that processes in input BW image into a sobel
+ *		filtered BW image
+ *Preconditions: The function requires a black and white image to process,
+ *		and an empty BW image of the same size to output the filtered image to
+ *		It also requires a int matrix with 2 elements "size" where 
+ *			size[0] = width of the image
+ *			size[1] = height of the image
+ *Postconditions: Sobel buff is now a BW image that holds the filtered output
+ *		from BWimg
+*/
 __global__ void SobelKernel (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 {
    int bx = blockIdx.x; int by = blockIdx.y;
