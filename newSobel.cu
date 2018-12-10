@@ -28,12 +28,45 @@ FILE *FILTER_IMAGE;
 #define WIDTH 0
 #define HEIGHT 1
 
+/* Function: Write_Image
+ * Parameters: 
+ * 	FilterPHoto - the struct of black and white pixels for the image that has 
+ 						  the sobel filter applied
+ *		size - an array of integers that holds the width and height in pixels of the img
+ *		ColCode - the number that signifies the highest pixel number for the file
+ *		FiltImage - the output file variable for where to print to
+ * Summary: 
+ *		This function prints out the contents of the image, the pixel sizes, and the 
+ *		P5 to the file so it will show up correctly
+ */
 void Write_Image (struct BW *FilterPhoto, int *size, int ColCode, FILE *FiltImage);
+/* Function: ConvertBW
+ * Parameters: 
+ *		ColorPhoto - the struct that holds the color pixels input from the original image
+ *		BWPhoto - the struct of black and white pixels for where 
+ * Summary: 
+ */
 void ConvertBW (struct Color *ColorPhoto, struct BW *BWphoto, struct Color *Ctmp, 
                 struct BW *BWtmp, int size);
+/* Function: 
+ * Parameters: 
+ * Summary: 
+ */
 void SobelX (struct BW *BWimg, struct BW *Sobel_Buff, int * size);
+/* Function: 
+ * Parameters: 
+ * Summary: 
+ */
 void CUDAsobel (struct BW *BWimg, struct BW *Sobel_Buff, int * size);
+/* Function: 
+ * Parameters: 
+ * Summary: 
+ */
 void errorCheck (int code, cudaError_t err);
+/* Function: 
+ * Parameters: 
+ * Summary: 
+ */
 __global__ void SobelKernel (struct BW *BWtmp, struct BW *Sobel_Buff, int * size);
 
 int main(int argc, char const *argv[])
