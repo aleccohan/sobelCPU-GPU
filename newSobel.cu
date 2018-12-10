@@ -177,6 +177,8 @@ void CUDAsobel (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
 
 	// creating grid and block size
 	dim3 dimblock(32,32,1);
+	//WE MAY BE ALLOCATING TO MANY BLOCKS IN THE GRID. MEMSIZE IS THE SIZE OF THE 
+	//WHOLE IMAGE
 	dim3 dimgrid(ceil(MEMsize/(dimblock.x)),ceil(MEMsize/(dimblock.y)),1);
 
 	// running kernel
