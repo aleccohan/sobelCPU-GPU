@@ -40,32 +40,48 @@ FILE *FILTER_IMAGE;
  *		P5 to the file so it will show up correctly
  */
 void Write_Image (struct BW *FilterPhoto, int *size, int ColCode, FILE *FiltImage);
+
 /* Function: ConvertBW
  * Parameters: 
  *		ColorPhoto - the struct that holds the color pixels input from the original image
- *		BWPhoto - the struct of black and white pixels for where 
+ *		BWPhoto - the struct of black and white pixels where the function writes to
+ *		Ctmp - temporary structure used for conversion 
+ *		BWtmp - temporary structure used for conversion
+ *		size - an array of integers that holds the width and height in pixels of the img
  * Summary: 
+ *		This function takes the original picture's pixels and converts them to black 
+ * 		and white to put them into the new BW struct
  */
 void ConvertBW (struct Color *ColorPhoto, struct BW *BWphoto, struct Color *Ctmp, 
                 struct BW *BWtmp, int size);
-/* Function: 
- * Parameters: 
+
+/* Function: SobelX
+ * Parameters:
+ 		BWimg - the struct that holds the black and white version of the original image in pixels
+ 		Sobel_Buff - the struct that will hold the sobel filtered version of the black and white pixels
+ 		size - an array of integers that holds the width and height in pixels of the img
  * Summary: 
- */
-void SobelX (struct BW *BWimg, struct BW *Sobel_Buff, int * size);
-/* Function: 
- * Parameters: 
- * Summary: 
+ *		This function is the old CPU version of the sobel filter
  */
 void CUDAsobel (struct BW *BWimg, struct BW *Sobel_Buff, int * size);
-/* Function: 
+
+/* Function: errorCheck
  * Parameters: 
+ 		code - an int to help represent where something went wrong with the program.
+ 		cudaError_t err - the string for the last error generated.
  * Summary: 
+ 		This function checks each pre kernel function call to see if they have executed correctly.
  */
 void errorCheck (int code, cudaError_t err);
-/* Function: 
- * Parameters: 
- * Summary: 
+
+/* Funtion: sharedSobelKernel
+ * Parameters:
+ 		*BWimg - the struct BW that holds all of the pixels for the black and white image. 
+ 		*Sobel_Buff - the struct BW that will eventually hold the completed sobel values.
+ 		rowSize - the size of each row of the given image.
+ * Summary:
+ 		This function holds the kernel that uses shared memory to manipulate each row with the sobel filter and then sends back the 
+ 		struct Sobel_Buff holding the completed image after sobel manipulation.  
  */
 __global__ void SobelKernel (struct BW *BWtmp, struct BW *Sobel_Buff, int * size);
 
@@ -143,54 +159,6 @@ void Write_Image (struct BW *FilterPhoto, int *size, int ColCode, FILE *FiltImag
    fclose(FiltImage);
 }
 
-/*
-void SobelX (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
-{
-	int width = size[WIDTH];
-	int height = size[HEIGHT];
-	for (int i = 1; i < (width - 1); ++i){
-		// cout << "sobel another row\n";
-   		for (int j = 1; j < (height - 1); ++j){
-   			// cout << endl << "i = " << i << "| j = " << j << endl;
-   			we want to apply the convolution kernel:		-1 0 1
-															-2 0 2
-															-1 0 1
-			to each pixels, except the very edges of the image
-			then set the value of the pixel to the sum of each pixel in the
-			3x3 area when multiplied by the coresponding value in the kernel
-			
-			//this is our sum
-			int sobelSumX = 0;
-
-			sobelSumX += BWimg[(j-1)*width+(i-1)].pixel * -1;
-			sobelSumX += BWimg[(j-1)*width+(i+1)].pixel *  1;
-			sobelSumX += BWimg[(j)*width + (i-1)].pixel * -2;
-			sobelSumX += BWimg[(j)*width + (i+1)].pixel *  2;
-			sobelSumX += BWimg[(j+1)*width+(i-1)].pixel * -1;
-			sobelSumX += BWimg[(j+1)*width+(i+1)].pixel *  1;
-
-			int sobelSumY = 0;
-
-			sobelSumY += BWimg[(j-1)*width+(i-1)].pixel * -1;
-			sobelSumY += BWimg[(j-1)*width+(i)].pixel   * -2;
-			sobelSumY += BWimg[(j-1)*width+(i+1)].pixel * -1;
-			sobelSumY += BWimg[(j+1)*width+(i-1)].pixel *  1;
-			sobelSumY += BWimg[(j+1)*width+(i)].pixel   *  2;
-			sobelSumY += BWimg[(j+1)*width+(i+1)].pixel *  1;
-
-			//set the pixel in the output
-			// cout << "setting pixel\n";
-			double color = max(0.0, min((double)(sobelSumX+sobelSumY), 255.0));
-			if(color > 60.0)
-				Sobel_Buff[j * width + i].pixel = color;
-			else 
-				Sobel_Buff[j * width + i].pixel = 0;
-			//max(0.0, min((double)sobelSum, 1.0));
-			// cout << "done setting pixel\n";
-		}
-	}
-}
-*/
 
 /*Description: CUDAsobel is a function that sets up everything the kernel needs
  *		to run, and then tells the kernel to run.

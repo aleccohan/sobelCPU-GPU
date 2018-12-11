@@ -55,16 +55,6 @@ void Write_Image (struct BW *FilterPhoto, int *size, int ColCode, FILE *FiltImag
 void ConvertBW (struct Color *ColorPhoto, struct BW *BWphoto, struct Color *Ctmp, 
                 struct BW *BWtmp, int size);
 
-/* Function: SobelX
- * Parameters:
- 		BWimg - the struct that holds the black and white version of the original image in pixels
- 		Sobel_Buff - the struct that will hold the sobel filtered version of the black and white pixels
- 		size - an array of integers that holds the width and height in pixels of the img
- * Summary: 
- *		This function is the old CPU version of the sobel filter
- */
-void SobelX (struct BW *BWimg, struct BW *Sobel_Buff, int * size);
-
 /* Function: CUDAsobel
  * Parameters: 
  		*BWimg - the struct BW that holds all of the pixels for the black and white image. 
@@ -273,10 +263,10 @@ __global__ void sharedSobelKernel (struct BW *BWimg, struct BW *Sobel_Buff, int 
 
 		int sobelSumX = 0;
 
-		sobelSumX += topRow[tx-1].pixel * -1;		//BWimg[(Row-1)*MTXwidth+(Col-1)].pixel * -1;
-		sobelSumX += topRow[tx+1].pixel * 1; 	//BWimg[(Row-1)*MTXwidth+(Col+1)].pixel *  1;
-		sobelSumX += middleRow[tx-1].pixel * -2;	//BWimg[(Row)*MTXwidth + (Col-1)].pixel * -2;
-		sobelSumX += middleRow[tx+1].pixel * 2;	//BWimg[(Row)*MTXwidth + (Col+1)].pixel *  2;
+		sobelSumX += topRow[tx-1].pixel * -1;		
+		sobelSumX += topRow[tx+1].pixel * 1; 	
+		sobelSumX += middleRow[tx-1].pixel * -2;	
+		sobelSumX += middleRow[tx+1].pixel * 2;	
 		sobelSumX += bottomRow[tx-1].pixel * -1; 	//BWimg[(Row+1)*MTXwidth+(Col-1)].pixel * -1;
 		sobelSumX += bottomRow[tx+1].pixel * 1;	//BWimg[(Row+1)*MTXwidth+(Col+1)].pixel *  1;
 
@@ -302,47 +292,3 @@ __global__ void sharedSobelKernel (struct BW *BWimg, struct BW *Sobel_Buff, int 
 
 
 }
-
-/*
-__global__ void SobelKernel (struct BW *BWimg, struct BW *Sobel_Buff, int * size)
-{
-   int bx = blockIdx.x; int by = blockIdx.y;
-   int tx = threadIdx.x; int ty = threadIdx.y;
-   int dx = blockDim.x; int dy = blockDim.y;
-
-   int pos = dx*bx+tx;
-   int Row = floor(pos/width)
-   int Col = pos%width;
-   int MTXwidth = size[WIDTH];
-   //printf("Col: %i\n", Col);
-
-	if ((Col < size[WIDTH]) && (Col > 0) && (Row < size[HEIGHT]) && (Row > 0))
-	{	
-		//printf("ROW: %i COL: %i\n",Row,Col);
-
-		int sobelSumX = 0;
-
-		sobelSumX += BWimg[(Row-1)*MTXwidth+(Col-1)].pixel * -1;
-		sobelSumX += BWimg[(Row-1)*MTXwidth+(Col+1)].pixel *  1;
-		sobelSumX += BWimg[(Row)*MTXwidth + (Col-1)].pixel * -2;
-		sobelSumX += BWimg[(Row)*MTXwidth + (Col+1)].pixel *  2;
-		sobelSumX += BWimg[(Row+1)*MTXwidth+(Col-1)].pixel * -1;
-		sobelSumX += BWimg[(Row+1)*MTXwidth+(Col+1)].pixel *  1;
-
-		int sobelSumY = 0;
-
-		sobelSumY += BWimg[(Row-1)*MTXwidth+(Col-1)].pixel * -1;
-		sobelSumY += BWimg[(Row-1)*MTXwidth+(Col)].pixel   * -2;
-		sobelSumY += BWimg[(Row-1)*MTXwidth+(Col+1)].pixel * -1;
-		sobelSumY += BWimg[(Row+1)*MTXwidth+(Col-1)].pixel *  1;
-		sobelSumY += BWimg[(Row+1)*MTXwidth+(Col)].pixel   *  2;
-		sobelSumY += BWimg[(Row+1)*MTXwidth+(Col+1)].pixel *  1;
-
-		double color = max(0.0, min((double)(sobelSumX+sobelSumY), 255.0));
-		if(color > 60.0)
-			Sobel_Buff[Row*MTXwidth+Col].pixel = color;
-		else 
-			Sobel_Buff[Row*MTXwidth+Col].pixel = 0;
-	}
-}
-*/
