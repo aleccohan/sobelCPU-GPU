@@ -1,28 +1,20 @@
-.DEFAULT_GOAL := newSobel
-CXX=nvcc
-RM=rm -f
+#
+#  make FN=<filename without the .cu>
+#  make clean FN=<filename without the .cu>
+#  
+#  make check_reg FN=<filename without the .cu>
+#  make debug FN=<filename without the .cu>
+#
+FN=
+NVCC=nvcc
+
 NVCCFLAGS=-arch=sm_52 
-
-SRCS=newSobel.cu
-OBJS=$(subst .cu,.o,$(SRCS))
-NAME=newSobel
-
-SHSRCS=newSobelShared.cu
-SHOBJS=$(subst .cu,.o,$(SHSRCS))
-SHNAME=sharedSobel
-
-all: newSobel sharedSobel
-
-newSobel: $(OBJS)
-	$(CXX)	$(NVCCFLAGS)	-o	$(NAME)	$(SRCS)
-
-sharedSobel:
-	$(CXX)	$(NVCCFLAGS)	-o	$(SHNAME)	$(SHSRCS)
-
+EXTRAS=-cubin -Xptxas="-v" --ptxas-options=-v
+$(FN):	$(FN).cu
+		$(NVCC) $(FN).cu $(NVCCFLAGS) -o $(FN)
 clean:
-	$(RM)	$(OBJS)
-	$(RM)	$(SHOBJS)
-
-distclean: clean
-	$(RM)	newSobel
-	$(RM)	sharedSobel
+		rm *.o *~ $(FN)	
+check_reg:
+	$(NVCC) $(FN).cu $(NVCCFLAGS) $(EXTRAS) -o $(FN)
+debug:
+	$(NVCC) $(FN).cu -DDEBUG $(NVCCFLAGS) -o $(FN)
